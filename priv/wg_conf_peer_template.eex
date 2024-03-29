@@ -1,0 +1,3 @@
+[Peer]
+AllowedIPs = <%= peer.ip_address %>/32
+PublicKey = <%= peer.public_key %>
