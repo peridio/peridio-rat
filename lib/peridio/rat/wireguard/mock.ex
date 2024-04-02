@@ -20,7 +20,7 @@ defmodule Peridio.RAT.WireGuard.Mock do
   end
 
   @impl WireGuardBehaviour
-  def configure_wireguard(_args) do
+  def configure_wireguard(_args, _conf_hooks) do
     {"good", 0}
   end
 
