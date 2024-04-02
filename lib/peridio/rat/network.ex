@@ -15,13 +15,21 @@ defmodule Peridio.RAT.Network do
 
   def available_cidrs(cidrs \\ @default_cidrs) do
     reserved_cidrs = reserved_cidrs()
-    Enum.map(cidrs, fn(cidr) ->
-      reserved_cidrs
-      |> Enum.filter(&CIDR.contains?(cidr, &1))
-      |> Enum.map(&CIDR.difference(&1, cidr))
-      |> List.flatten()
-    end)
-    |> List.flatten()
+
+    {reserved, available} =
+      Enum.reduce(cidrs, {[], []}, fn(cidr, {reserved, available}) ->
+        case Enum.filter(reserved_cidrs, &CIDR.contains?(cidr, &1)) do
+          [] -> {reserved, [cidr | available]}
+          reservations -> {Enum.map(reservations, &{&1, cidr}) ++ reserved, available}
+        end
+      end)
+
+    available_from_reserved =
+      Enum.map(reserved, fn({reservation, cidr}) ->
+        CIDR.difference(reservation, cidr) |> List.flatten()
+      end)
+
+    List.flatten(available ++ available_from_reserved)
   end
 
   def reserved_cidrs() do
