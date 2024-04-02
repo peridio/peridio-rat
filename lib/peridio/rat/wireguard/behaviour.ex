@@ -3,7 +3,7 @@ defmodule Peridio.RAT.WireGuard.WireGuardBehaviour do
   @callback create_interface(String.t()) :: {String.t(), integer()}
   @callback configure_interface_endpoints(String.t(), String.t(), String.t()) ::
               {String.t(), integer()}
-  @callback configure_wireguard(map()) :: {String.t(), integer()}
+  @callback configure_wireguard(map(), String.t()) :: {String.t(), integer()}
   @callback bring_up_interface(String.t()) :: {String.t(), integer()}
   @callback teardown_interface(String.t()) :: {String.t(), integer()}
   @callback generate_key_pair() :: %{atom() => String.t(), atom() => String.t()}

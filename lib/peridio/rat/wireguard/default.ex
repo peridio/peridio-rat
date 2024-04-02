@@ -21,7 +21,7 @@ defmodule Peridio.RAT.WireGuard.Default do
           interface: interface,
           peer: peer
         },
-        conf_hooks \\ ""
+        conf_hooks
       ) do
     # System.cmd("bash", [
     #   "-c",

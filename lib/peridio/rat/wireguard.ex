@@ -10,8 +10,8 @@ defmodule Peridio.RAT.WireGuard do
     @client.configure_interface_endpoints(interface_name, our_ip, peer_ip)
   end
 
-  def configure_wireguard(args) do
-    @client.configure_wireguard(args)
+  def configure_wireguard(args, conf_hooks \\ "") do
+    @client.configure_wireguard(args, conf_hooks)
   end
 
   def bring_up_interface(interface_name) do
