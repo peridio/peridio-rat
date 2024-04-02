@@ -15,7 +15,14 @@ defmodule Peridio.RAT.WireGuard.Default do
   end
 
   @impl WireGuardBehaviour
-  def configure_wireguard(%{wg_interface: wg_interface, interface: interface, peer: peer}) do
+  def configure_wireguard(
+        %{
+          wg_interface: wg_interface,
+          interface: interface,
+          peer: peer
+        },
+        conf_hooks \\ ""
+      ) do
     # System.cmd("bash", [
     #   "-c",
     #   "wg set #{inspect(args.interface_name)} listen-port #{inspect(args.listen_port)} private-key <(echo #{inspect(args.private_key)}) peer #{inspect(args.peer)} allowed-ips #{inspect(args.allowed_ips)} endpoint #{inspect(args.endpoint_ip)}:#{inspect(args.endpoint_port)} persistent-keepalive #{inspect(args.keep_alive_timeout)}"
@@ -27,18 +34,11 @@ defmodule Peridio.RAT.WireGuard.Default do
     priv_dir = Application.app_dir(:peridio_rat, "priv")
 
     # wireguard interface configuration
-    conf_interface = EEx.eval_file("#{priv_dir}/wg_conf_interface_template.eex", interface: interface)
+    conf_interface =
+      EEx.eval_file("#{priv_dir}/wg_conf_interface_template.eex", interface: interface)
 
-    # wiregurad peer configuration
+    # wireguard peer configuration
     conf_peer = EEx.eval_file("#{priv_dir}/wg_conf_peer_template.eex", peer: peer)
-
-    # wireguard hooks configuration
-    conf_hooks =
-      EEx.eval_file("#{priv_dir}/wg_conf_hooks_template.eex",
-        peer: peer,
-        interface: interface,
-        forward_interface_name: "enX0"
-      )
 
     File.write(
       "#{priv_dir}/#{wg_interface}.conf",
