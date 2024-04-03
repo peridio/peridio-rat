@@ -1,21 +1,19 @@
 # Peridio.RAT
 
-**TODO: Add description**
+Peridio Remote Access Tullens.
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `peridio_rat` to your list of dependencies in `mix.exs`:
+Add the dependency to your mix project
 
 ```elixir
-def deps do
-  [
-    {:peridio_rat, "~> 0.1.0"}
-  ]
-end
+{:peridio_rat, github: "peridio/peridio-rat"}
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/peridio_rat>.
+## System Dependencies
 
+Peridio RAT is designed to operate on Linux based systems and requires the following system utilities and dependencies to function properly.
+
+* Linux Kernel with Wireguard enabled.
+* `wireguard-tools`: Tools for wg-quick.
+* `ss`: For scanning local ports
