@@ -1,11 +1,9 @@
 defmodule Peridio.RAT.Network.CIDR do
-  defstruct [
-    ip_start: nil,
-    ip_end: nil,
-    addresses: nil,
-    length: nil,
-    range: nil
-  ]
+  defstruct ip_start: nil,
+            ip_end: nil,
+            addresses: nil,
+            length: nil,
+            range: nil
 
   alias Peridio.RAT.Network.IP
 
@@ -19,10 +17,10 @@ defmodule Peridio.RAT.Network.CIDR do
     {:ok, cidr} = from_inets_interface(inet_if)
     cidr
   end
+
   def from_inets_interface({_if_name, if_opts}) do
     with {:ok, {_, _, _, _} = addr} <- Keyword.fetch(if_opts, :addr),
          {:ok, {_, _, _, _} = mask} <- Keyword.fetch(if_opts, :netmask) do
-
       ip_int = IP.tuple_to_integer(addr)
       mask_int = IP.tuple_to_integer(mask)
       ip_start = find_start_address(ip_int, mask_int)
@@ -30,6 +28,7 @@ defmodule Peridio.RAT.Network.CIDR do
       cidr_length = mask_to_length(mask_int)
       addresses = addresses(cidr_length)
       ip_end = ip_start + (addresses - 1)
+
       cidr =
         %__MODULE__{
           ip_start: IP.integer_to_tuple(ip_start),
@@ -38,6 +37,7 @@ defmodule Peridio.RAT.Network.CIDR do
           length: cidr_length,
           range: ip_start..ip_end
         }
+
       {:ok, cidr}
     else
       e -> {:error, e}
@@ -48,15 +48,16 @@ defmodule Peridio.RAT.Network.CIDR do
     {:ok, cidr} = from_string(cidr_string)
     cidr
   end
+
   def from_string(cidr_string) do
     with [ip_string, length_str] <- String.split(cidr_string, "/", parts: 2),
-          char_list <- String.to_charlist(ip_string),
-          {:ok, ip_start_tuple} <- :inet.parse_address(char_list),
-          {cidr_length, _} <- Integer.parse(length_str) do
-
+         char_list <- String.to_charlist(ip_string),
+         {:ok, ip_start_tuple} <- :inet.parse_address(char_list),
+         {cidr_length, _} <- Integer.parse(length_str) do
       ip_start = IP.tuple_to_integer(ip_start_tuple)
       addresses = addresses(cidr_length)
       ip_end = ip_start + (addresses - 1)
+
       cidr =
         %__MODULE__{
           ip_start: ip_start_tuple,
@@ -65,6 +66,7 @@ defmodule Peridio.RAT.Network.CIDR do
           length: cidr_length,
           range: ip_start..ip_end
         }
+
       {:ok, cidr}
     end
   end
@@ -72,8 +74,10 @@ defmodule Peridio.RAT.Network.CIDR do
   def from_ip_tuple_range({_, _, _, _} = ip_start, {_, _, _, _} = ip_end) do
     from_ip_range(IP.tuple_to_integer(ip_start)..IP.tuple_to_integer(ip_end))
   end
+
   def from_ip_range(_, acc \\ [])
   def from_ip_range(s_ip..e_ip, acc) when s_ip >= e_ip, do: acc
+
   def from_ip_range(ip_start..ip_end = range, acc) do
     max_range_prefix =
       Range.size(range)
@@ -85,7 +89,7 @@ defmodule Peridio.RAT.Network.CIDR do
     min_ip_prefix = ip_prefix_length(ip_start)
     cidr_prefix = max(max_range_prefix, min_ip_prefix)
     addresses = addresses(cidr_prefix)
-    cidr_ip_end = ip_start + (addresses - 1) |> round()
+    cidr_ip_end = (ip_start + (addresses - 1)) |> round()
 
     cidr =
       %__MODULE__{
@@ -95,6 +99,7 @@ defmodule Peridio.RAT.Network.CIDR do
         length: cidr_prefix,
         range: ip_start..cidr_ip_end
       }
+
     from_ip_range((cidr_ip_end + 1)..ip_end, [cidr | acc])
   end
 
@@ -103,25 +108,30 @@ defmodule Peridio.RAT.Network.CIDR do
     mask_int = IP.tuple_to_integer(mask)
     find_start_address(ip_int, mask_int)
   end
-  def find_start_address(ip_int, mask_int), do: (mask_int &&& ip_int)
+
+  def find_start_address(ip_int, mask_int), do: mask_int &&& ip_int
 
   def mask_to_length({a, b, c, d}) do
     <<mask_int::unsigned-integer-size(32)>> = <<a, b, c, d>>
     mask_to_length(mask_int)
   end
+
   def mask_to_length(mask_int) do
     msb_position =
       mask_int
       |> bxor(0xFFFFFFFF)
 
     case msb_position do
-      0 -> 32
+      0 ->
+        32
+
       pos ->
         pos =
           pos
           |> :math.log2()
           |> floor()
           |> round()
+
         32 - (pos + 1)
     end
   end
@@ -139,7 +149,7 @@ defmodule Peridio.RAT.Network.CIDR do
   # r:    [##]
   # ret: []
   def difference(%__MODULE__{range: l_start..l_end}, %__MODULE__{range: r_start..r_end})
-    when (l_start < r_start) and (l_end > r_end) do
+      when l_start < r_start and l_end > r_end do
     []
   end
 
@@ -147,7 +157,7 @@ defmodule Peridio.RAT.Network.CIDR do
   # r:  [###]
   # ret:  [#]
   def difference(%__MODULE__{range: l_start..l_end}, %__MODULE__{range: r_start..r_end})
-    when (l_end < r_end) and (l_start <= r_start) do
+      when l_end < r_end and l_start <= r_start do
     [(l_end + 1)..r_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
   end
 
@@ -155,7 +165,7 @@ defmodule Peridio.RAT.Network.CIDR do
   # r:   [###]
   # ret: [#]
   def difference(%__MODULE__{range: l_start..l_end}, %__MODULE__{range: r_start..r_end})
-    when (l_end > r_end) and (l_start >= r_start) do
+      when l_end > r_end and l_start >= r_start do
     [(r_end + 1)..l_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
   end
 
@@ -163,20 +173,20 @@ defmodule Peridio.RAT.Network.CIDR do
   # r:   [####]
   # ret: [#][#]
   def difference(%__MODULE__{range: l_start..l_end}, %__MODULE__{range: r_start..r_end})
-    when (l_start > r_start) and (l_end < r_end) do
-    [r_start..(l_start - 1), (l_end + 1)..r_end]
-    |> Enum.map(&from_ip_range/1) |> List.flatten()
+      when l_start > r_start and l_end < r_end do
+    [r_start..(l_start - 1), (l_end + 1)..r_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
   end
 
   def ip_prefix_length(ip_int) do
     first_lsb = first_set_lsb_position(ip_int)
+
     (:math.pow(2, first_lsb) - 1)
     |> round()
     |> bxor(0xFFFFFFFF)
     |> mask_to_length()
   end
 
-  defp addresses(cidr_length) when is_integer(cidr_length), do: (0x100000000 >>> cidr_length)
+  defp addresses(cidr_length) when is_integer(cidr_length), do: 0x100000000 >>> cidr_length
 
   defp first_set_lsb_position(x) when x > 0 do
     lowest_set_bit = x &&& -x

@@ -1,5 +1,4 @@
 defmodule Peridio.RAT.Network.IP do
-
   def tuple_to_integer({a, b, c, d}) do
     <<ipv4_int::unsigned-integer-size(32)>> = <<a, b, c, d>>
     ipv4_int
