@@ -21,11 +21,11 @@ defmodule Peridio.RAT.Network.CIDR do
   def from_inets_interface({_if_name, if_opts}) do
     with {:ok, {_, _, _, _} = addr} <- Keyword.fetch(if_opts, :addr),
          {:ok, {_, _, _, _} = mask} <- Keyword.fetch(if_opts, :netmask) do
-      ip_int = IP.tuple_to_integer(addr)
-      mask_int = IP.tuple_to_integer(mask)
-      ip_start = find_start_address(ip_int, mask_int)
+      ip = IP.new(addr)
+      mask = IP.tuple_to_integer(mask)
+      ip_start = find_start_address(ip.address, mask)
 
-      cidr_length = mask_to_length(mask_int)
+      cidr_length = mask_to_length(mask)
       addresses = addresses(cidr_length)
       ip_end = ip_start + (addresses - 1)
 

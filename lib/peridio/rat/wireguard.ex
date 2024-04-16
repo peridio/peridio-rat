@@ -10,16 +10,16 @@ defmodule Peridio.RAT.WireGuard do
     @client.configure_interface_endpoints(interface_name, our_ip, peer_ip)
   end
 
-  def configure_wireguard(args, conf_hooks \\ "") do
-    @client.configure_wireguard(args, conf_hooks)
+  def configure_wireguard(interface, peer, opts \\ []) do
+    @client.configure_wireguard(interface, peer, opts)
   end
 
-  def bring_up_interface(interface_name) do
-    @client.bring_up_interface(interface_name)
+  def bring_up_interface(interface_id, opts \\ []) do
+    @client.bring_up_interface(interface_id, opts)
   end
 
-  def teardown_interface(interface_name) do
-    @client.teardown_interface(interface_name)
+  def teardown_interface(interface_name, opts \\ []) do
+    @client.teardown_interface(interface_name, opts)
   end
 
   def generate_key_pair() do
