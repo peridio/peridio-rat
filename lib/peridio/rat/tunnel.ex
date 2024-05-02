@@ -159,7 +159,7 @@ defmodule Peridio.RAT.Tunnel do
     # assuming we have a WireGuard.stale?(state.wg_interface)
     # depending on the reply, we can either keep going and check again
     # or terminate and clean up
-    case stale?(state.wg_interface) do
+    case stale?(state.interface.id) do
       # true -> {:stop, :normal, state}  # FIXME setup a more graceful way to toggle for development
       true ->
         IO.puts("Stale connection!")
@@ -173,15 +173,15 @@ defmodule Peridio.RAT.Tunnel do
   end
 
   def terminate(_reason, state) do
-    if Map.has_key?(state, :wg_interface) do
-      {_, _} = WireGuard.teardown_interface(state.wg_interface)
+    if Map.has_key?(state, :interface) do
+      {_, _} = WireGuard.teardown_interface(state.interface.id)
     end
   end
 
-  defp stale?(wg_interface) do
-    {rx, _} = WireGuard.rx_packet_stats(wg_interface)
-    {tx, _} = WireGuard.tx_packet_stats(wg_interface)
-    {time, _} = WireGuard.wg_latest_handshakes(wg_interface)
+  defp stale?(interface) do
+    {rx, _} = WireGuard.rx_packet_stats(interface)
+    {tx, _} = WireGuard.tx_packet_stats(interface)
+    {time, _} = WireGuard.wg_latest_handshakes(interface)
     rx = String.to_integer(rx)
     tx = String.to_integer(tx)
     time = String.to_integer(time)
