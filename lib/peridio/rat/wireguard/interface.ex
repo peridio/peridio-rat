@@ -18,7 +18,7 @@ defmodule Peridio.RAT.WireGuard.Interface do
   @typedoc """
   The Wireguard Interface definition for the local machine
 
-  - `:name` - The local Interface name.
+  - `:id` - The local Interface name.
   - `:ip_address` - The ip address of the local interface in Erlang tuple form {_, _, _, _}.
   - `:port` - The local port the interface is listening on.
   - `:private_key` - The private key of the wireguard interface.
@@ -26,12 +26,12 @@ defmodule Peridio.RAT.WireGuard.Interface do
   """
 
   @type t :: %__MODULE__{
-    id: String.t(),
-    ip_address: IP.t(),
-    port: non_neg_integer(),
-    private_key: String.t(),
-    public_key: String.t()
-  }
+          id: String.t(),
+          ip_address: IP.t(),
+          port: non_neg_integer(),
+          private_key: String.t(),
+          public_key: String.t()
+        }
 
   @ifprefix "peridio-"
 
@@ -39,6 +39,7 @@ defmodule Peridio.RAT.WireGuard.Interface do
     id = @ifprefix <> Utils.generate_random_string(4)
     port_range = Network.available_ports()
     port = port_range |> Enum.random() |> Enum.random()
+
     %__MODULE__{
       id: id,
       port: port,
