@@ -1,13 +1,11 @@
 defmodule Peridio.RAT.Network.IP do
-  defstruct [
-    address: nil
-  ]
+  defstruct address: nil
 
   @type address :: non_neg_integer()
 
   @type t :: %__MODULE__{
-    address: address()
-  }
+          address: address()
+        }
 
   defimpl String.Chars, for: __MODULE__ do
     def to_string(%{address: address}) do
@@ -18,7 +16,7 @@ defmodule Peridio.RAT.Network.IP do
 
   def new({_, _, _, _} = ipv4) do
     %__MODULE__{
-      address: tuple_to_integer(ipv4),
+      address: tuple_to_integer(ipv4)
     }
   end
 

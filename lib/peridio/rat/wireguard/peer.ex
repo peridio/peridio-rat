@@ -20,10 +20,10 @@ defmodule Peridio.RAT.WireGuard.Peer do
   """
 
   @type t :: %__MODULE__{
-    ip_address: String.t(),
-    endpoint: String.t(),
-    port: non_neg_integer(),
-    public_key: String.t(),
-    persistent_keepalive: non_neg_integer()
-  }
+          ip_address: String.t(),
+          endpoint: String.t(),
+          port: non_neg_integer(),
+          public_key: String.t(),
+          persistent_keepalive: non_neg_integer()
+        }
 end

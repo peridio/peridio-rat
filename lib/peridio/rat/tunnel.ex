@@ -89,7 +89,7 @@ defmodule Peridio.RAT.Tunnel do
   # Server Process Callbacks
   def init(state) do
     Process.send_after(self(), :check_status, @initial_status_check_interval)
-    ttl = DateTime.diff(state.expires_at, DateTime.utc_now())
+    ttl = DateTime.diff(state.expires_at, DateTime.utc_now(), :millisecond)
     Process.send_after(self(), :ttl_timeout, ttl)
     {:ok, state, {:continue, :further_setup}}
   end

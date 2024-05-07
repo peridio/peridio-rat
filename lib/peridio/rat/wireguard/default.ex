@@ -1,7 +1,6 @@
 defmodule Peridio.RAT.WireGuard.Default do
   alias Peridio.RAT.WireGuard.{WireGuardBehaviour, Interface, Peer}
 
-
   @behaviour WireGuardBehaviour
 
   # Setup and Configuration
@@ -18,12 +17,12 @@ defmodule Peridio.RAT.WireGuard.Default do
   @impl WireGuardBehaviour
   def configure_wireguard(%Interface{} = interface, %Peer{} = peer, opts \\ []) do
     # System.cmd("bash", [
-      #   "-c",
-      #   "wg set #{inspect(args.interface_name)} listen-port #{inspect(args.listen_port)} private-key <(echo #{inspect(args.private_key)}) peer #{inspect(args.peer)} allowed-ips #{inspect(args.allowed_ips)} endpoint #{inspect(args.endpoint_ip)}:#{inspect(args.endpoint_port)} persistent-keepalive #{inspect(args.keep_alive_timeout)}"
-      # ])
-      # This is peer configuration to give to the interface
-      # peer = EEx.eval_file("priv/wg_conf_peer_template.eex", peer: peer)
-      # File.write("priv/#{wg_interface}_peer.conf", peer)
+    #   "-c",
+    #   "wg set #{inspect(args.interface_name)} listen-port #{inspect(args.listen_port)} private-key <(echo #{inspect(args.private_key)}) peer #{inspect(args.peer)} allowed-ips #{inspect(args.allowed_ips)} endpoint #{inspect(args.endpoint_ip)}:#{inspect(args.endpoint_port)} persistent-keepalive #{inspect(args.keep_alive_timeout)}"
+    # ])
+    # This is peer configuration to give to the interface
+    # peer = EEx.eval_file("priv/wg_conf_peer_template.eex", peer: peer)
+    # File.write("priv/#{wg_interface}_peer.conf", peer)
 
     opts = default_wireguard_opts(opts)
     priv_dir = Application.app_dir(:peridio_rat, "priv")

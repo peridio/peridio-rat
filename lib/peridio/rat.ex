@@ -10,7 +10,13 @@ defmodule Peridio.RAT do
       expires_at: opts[:expires_at],
       opts: opts
     }
-    resp = DynamicSupervisor.start_child(Peridio.RAT.DynamicSupervisor, Peridio.RAT.Tunnel.child_spec(state))
+
+    resp =
+      DynamicSupervisor.start_child(
+        Peridio.RAT.DynamicSupervisor,
+        Peridio.RAT.Tunnel.child_spec(state)
+      )
+
     case resp do
       {:ok, _pid} -> {:ok, state}
       error -> error
