@@ -20,27 +20,27 @@ defmodule Peridio.RAT.WireGuard.Mock do
   end
 
   @impl WireGuardBehaviour
-  def configure_wireguard(_args, _conf_hooks) do
+  def configure_wireguard(_interface, _args, _conf_hooks) do
     :ok
   end
 
   @impl WireGuardBehaviour
-  def bring_up_interface("failure") do
+  def bring_up_interface("failure", _opts) do
     {"fail", 1}
   end
 
   @impl WireGuardBehaviour
-  def bring_up_interface(_) do
+  def bring_up_interface(_, _opts) do
     {"", 0}
   end
 
   @impl WireGuardBehaviour
-  def teardown_interface("failure") do
+  def teardown_interface("failure", _opts) do
     {"fail", 1}
   end
 
   @impl WireGuardBehaviour
-  def teardown_interface(_) do
+  def teardown_interface(_, _opts) do
     {"success", 0}
   end
 

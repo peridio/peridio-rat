@@ -1,5 +1,5 @@
 defmodule Peridio.RAT.WireGuard.Default do
-  alias Peridio.RAT.WireGuard.WireGuardBehaviour
+  alias Peridio.RAT.WireGuard.{WireGuardBehaviour, Interface, Peer}
 
   @behaviour WireGuardBehaviour
 
@@ -15,14 +15,7 @@ defmodule Peridio.RAT.WireGuard.Default do
   end
 
   @impl WireGuardBehaviour
-  def configure_wireguard(
-        %{
-          wg_interface: wg_interface,
-          interface: interface,
-          peer: peer
-        },
-        conf_hooks
-      ) do
+  def configure_wireguard(%Interface{} = interface, %Peer{} = peer, opts \\ []) do
     # System.cmd("bash", [
     #   "-c",
     #   "wg set #{inspect(args.interface_name)} listen-port #{inspect(args.listen_port)} private-key <(echo #{inspect(args.private_key)}) peer #{inspect(args.peer)} allowed-ips #{inspect(args.allowed_ips)} endpoint #{inspect(args.endpoint_ip)}:#{inspect(args.endpoint_port)} persistent-keepalive #{inspect(args.keep_alive_timeout)}"
@@ -31,6 +24,7 @@ defmodule Peridio.RAT.WireGuard.Default do
     # peer = EEx.eval_file("priv/wg_conf_peer_template.eex", peer: peer)
     # File.write("priv/#{wg_interface}_peer.conf", peer)
 
+    opts = default_wireguard_opts(opts)
     priv_dir = Application.app_dir(:peridio_rat, "priv")
 
     # wireguard interface configuration
@@ -40,27 +34,28 @@ defmodule Peridio.RAT.WireGuard.Default do
     # wireguard peer configuration
     conf_peer = EEx.eval_file("#{priv_dir}/wg_conf_peer_template.eex", peer: peer)
 
-    File.write(
-      "#{priv_dir}/#{wg_interface}.conf",
-      conf_interface <> "\n" <> conf_hooks <> "\n" <> conf_peer
-    )
+    opts[:work_dir]
+    |> Path.join("#{interface.id}.conf")
+    |> File.write(conf_interface <> "\n" <> opts[:hooks] <> "\n" <> conf_peer)
   end
 
   @impl WireGuardBehaviour
-  def bring_up_interface(interface_name) do
+  def bring_up_interface(interface_name, opts \\ []) do
     # System.cmd("ip", ["link", "set", "up", "dev", interface_name])
-    priv_dir = Application.app_dir(:peridio_rat, "priv")
-    System.cmd("wg-quick", ["up", "#{priv_dir}/#{interface_name}.conf"])
+    opts = default_wireguard_opts(opts)
+    conf_file = Path.join([opts[:work_dir], "#{interface_name}.conf"])
+    System.cmd("wg-quick", ["up", conf_file])
   end
 
   @impl WireGuardBehaviour
-  def teardown_interface(interface_name) do
+  def teardown_interface(interface_name, opts \\ []) do
     # System.cmd("ip", ["link", "del", "dev", interface_name])
-    priv_dir = Application.app_dir(:peridio_rat, "priv")
-    result = System.cmd("wg-quick", ["down", "#{priv_dir}/#{interface_name}.conf"])
+    opts = default_wireguard_opts(opts)
+    conf_file = Path.join([opts[:work_dir], "#{interface_name}.conf"])
+    result = System.cmd("wg-quick", ["down", conf_file])
 
     if result == {"", 0} do
-      File.rm("#{priv_dir}/#{interface_name}.conf")
+      File.rm(conf_file)
     end
 
     result
@@ -121,5 +116,15 @@ defmodule Peridio.RAT.WireGuard.Default do
       error_tuple ->
         error_tuple
     end
+  end
+
+  def default_wireguard_opts(opts) do
+    opts
+    |> Keyword.put_new(:hooks, "")
+    |> Keyword.put_new(:work_dir, default_work_dir())
+  end
+
+  def default_work_dir() do
+    Application.get_env(:peridio_rat, :work_dir, System.tmp_dir!())
   end
 end

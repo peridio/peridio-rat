@@ -9,8 +9,8 @@ defmodule Peridio.RAT.Application do
   def start(_type, _args) do
     children = [
       # Start the process registry for WireGuard tunnel GenServers
-      {Registry, keys: :unique, name: :tunnel_servers},
-      {Registry, keys: :unique, name: :mock_},
+      {Registry, keys: :unique, name: :tunnels},
+      {Registry, keys: :unique, name: :mocks},
       # Start the supervisor which will monitor WireGuard tunnel GenServers
       {DynamicSupervisor, strategy: :one_for_one, name: Peridio.RAT.DynamicSupervisor}
     ]
