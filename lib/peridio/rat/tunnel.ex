@@ -65,7 +65,8 @@ defmodule Peridio.RAT.Tunnel do
   @connection_timeout 60 * 5
 
   defmodule State do
-    defstruct interface: nil,
+    defstruct id: nil,
+              interface: nil,
               peer: nil,
               expires_at: nil,
               opts: []
@@ -73,6 +74,7 @@ defmodule Peridio.RAT.Tunnel do
 
   # Public Functions
   def generate_via_tuple(id), do: {:via, Registry, {:tunnels, id}}
+  def generate_via_tuple(id, interface), do: {:via, Registry, {:tunnels, id, interface}}
 
   def child_spec(args) do
     %{
@@ -83,7 +85,7 @@ defmodule Peridio.RAT.Tunnel do
   end
 
   def start_link(%State{} = state) do
-    GenServer.start_link(__MODULE__, state, name: generate_via_tuple(state.interface.id))
+    GenServer.start_link(__MODULE__, state, name: generate_via_tuple(state.id, state.interface))
   end
 
   # Server Process Callbacks
