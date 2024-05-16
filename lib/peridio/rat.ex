@@ -3,8 +3,9 @@ defmodule Peridio.RAT do
 
   # What is needed to open a tunnel?
   # We need the peer and interface information structs
-  def open_tunnel(interface, peer, opts \\ []) do
+  def open_tunnel(id, interface, peer, opts \\ []) do
     state = %Tunnel.State{
+      id: id,
       interface: interface,
       peer: peer,
       expires_at: opts[:expires_at],
@@ -23,6 +24,7 @@ defmodule Peridio.RAT do
     end
   end
 
+  @spec close_tunnel(any()) :: :ok | {:error, :not_running}
   def close_tunnel(id) do
     case GenServer.whereis(Tunnel.generate_via_tuple(id)) do
       nil ->
