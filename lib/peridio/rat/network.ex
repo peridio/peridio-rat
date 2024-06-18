@@ -60,7 +60,7 @@ defmodule Peridio.RAT.Network do
     end
   end
 
-  def reserved_ports(port_start..port_end) do
+  def reserved_ports(port_start..port_end//_) do
     case System.cmd("ss", [
            "-tauH",
            "sport",
@@ -96,14 +96,14 @@ defmodule Peridio.RAT.Network do
     |> elem(0)
   end
 
-  def split_range(_start.._stop = range, numbers_to_remove) do
+  def split_range(_start.._stop//_ = range, numbers_to_remove) do
     numbers_to_remove = Enum.sort(numbers_to_remove)
     do_split_range(range, numbers_to_remove)
   end
 
   defp do_split_range(_range, _remove, _acc \\ [])
 
-  defp do_split_range(start..stop, [], acc) do
+  defp do_split_range(start..stop//_, [], acc) do
     if start > stop do
       acc
     else
@@ -112,23 +112,23 @@ defmodule Peridio.RAT.Network do
   end
 
   # Number is outside range
-  defp do_split_range(start..stop, [head | _tail], acc)
+  defp do_split_range(start..stop//_, [head | _tail], acc)
        when start > stop or head > stop do
     do_split_range(start..stop, [], acc)
   end
 
   # Remove first in range
-  defp do_split_range(start..stop, [start | tail], acc) do
+  defp do_split_range(start..stop//_, [start | tail], acc) do
     do_split_range((start + 1)..stop, tail, acc)
   end
 
   # Remove last in range
-  defp do_split_range(start..stop, [stop | _tail], acc) do
+  defp do_split_range(start..stop//_, [stop | _tail], acc) do
     do_split_range(start..(stop - 1), [], acc)
   end
 
   # In range
-  defp do_split_range(start..stop, [head | tail], acc) do
+  defp do_split_range(start..stop//_, [head | tail], acc) do
     new_range = start..(head - 1)
     do_split_range((head + 1)..stop, tail, [new_range | acc])
   end

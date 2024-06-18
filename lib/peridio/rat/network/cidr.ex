@@ -76,9 +76,9 @@ defmodule Peridio.RAT.Network.CIDR do
   end
 
   def from_ip_range(_, acc \\ [])
-  def from_ip_range(s_ip..e_ip, acc) when s_ip >= e_ip, do: acc
+  def from_ip_range(s_ip..e_ip//_, acc) when s_ip >= e_ip, do: acc
 
-  def from_ip_range(ip_start..ip_end = range, acc) do
+  def from_ip_range(ip_start..ip_end//_ = range, acc) do
     max_range_prefix =
       Range.size(range)
       |> :math.log2()
@@ -148,7 +148,7 @@ defmodule Peridio.RAT.Network.CIDR do
   # l:   [####]
   # r:    [##]
   # ret: []
-  def difference(%__MODULE__{range: l_start..l_end}, %__MODULE__{range: r_start..r_end})
+  def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: r_start..r_end//_})
       when l_start < r_start and l_end > r_end do
     []
   end
@@ -156,7 +156,7 @@ defmodule Peridio.RAT.Network.CIDR do
   # l: [###]
   # r:  [###]
   # ret:  [#]
-  def difference(%__MODULE__{range: l_start..l_end}, %__MODULE__{range: r_start..r_end})
+  def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: r_start..r_end//_})
       when l_end < r_end and l_start <= r_start do
     [(l_end + 1)..r_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
   end
@@ -164,7 +164,7 @@ defmodule Peridio.RAT.Network.CIDR do
   # l:    [###]
   # r:   [###]
   # ret: [#]
-  def difference(%__MODULE__{range: l_start..l_end}, %__MODULE__{range: r_start..r_end})
+  def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: r_start..r_end//_})
       when l_end > r_end and l_start >= r_start do
     [(r_end + 1)..l_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
   end
@@ -172,7 +172,7 @@ defmodule Peridio.RAT.Network.CIDR do
   # l:    [##]
   # r:   [####]
   # ret: [#][#]
-  def difference(%__MODULE__{range: l_start..l_end}, %__MODULE__{range: r_start..r_end})
+  def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: r_start..r_end//_})
       when l_start > r_start and l_end < r_end do
     [r_start..(l_start - 1), (l_end + 1)..r_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
   end
