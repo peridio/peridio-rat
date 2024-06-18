@@ -27,7 +27,8 @@ defmodule Peridio.RAT.WireGuard.Default do
     priv_dir = Application.app_dir(:peridio_rat, "priv")
 
     # wireguard interface configuration
-    conf_interface = EEx.eval_file("#{priv_dir}/wg_conf_interface_template.eex", interface: interface)
+    conf_interface =
+      EEx.eval_file("#{priv_dir}/wg_conf_interface_template.eex", interface: interface)
 
     # wiregurad peer configuration
     conf_peer = EEx.eval_file("#{priv_dir}/wg_conf_peer_template.eex", peer: peer)
