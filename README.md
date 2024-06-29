@@ -1,6 +1,6 @@
 # Peridio.RAT
 
-Peridio Remote Access Tullens.
+Peridio Remote Access Tunnels.
 
 ## Installation
 
