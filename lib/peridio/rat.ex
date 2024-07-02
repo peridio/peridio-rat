@@ -34,4 +34,14 @@ defmodule Peridio.RAT do
         GenServer.stop(pid)
     end
   end
+
+  def extend_tunnel(id, expires_at) do
+    case GenServer.whereis(Tunnel.generate_via_tuple(id)) do
+      nil ->
+        {:error, :not_running}
+
+      pid ->
+        GenServer.cast(pid, {:extend, expires_at})
+    end
+  end
 end

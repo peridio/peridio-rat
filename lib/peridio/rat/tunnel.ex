@@ -92,8 +92,17 @@ defmodule Peridio.RAT.Tunnel do
   def init(state) do
     Process.send_after(self(), :check_status, @initial_status_check_interval)
     ttl = DateTime.diff(state.expires_at, DateTime.utc_now(), :millisecond)
-    Process.send_after(self(), :ttl_timeout, ttl)
-    {:ok, state, {:continue, :further_setup}}
+    timer_ref = Process.send_after(self(), :ttl_timeout, ttl)
+    opts = Keyword.put(state.opts, :timeout, timer_ref)
+    {:ok, %{state | opts: opts}, {:continue, :further_setup}}
+  end
+
+  def handle_cast({:extend, expires_at}, state) do
+    Process.cancel_timer(state.opts[:timeout])
+    ttl = DateTime.diff(expires_at, DateTime.utc_now(), :millisecond)
+    timer_ref = Process.send_after(self(), :ttl_timeout, ttl)
+    opts = Keyword.put(state.opts, :timeout, timer_ref)
+    {:noreply, %{state | expires_at: expires_at, opts: opts}}
   end
 
   def handle_continue(:further_setup, state) do
