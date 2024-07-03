@@ -76,30 +76,12 @@ defmodule Peridio.RAT.Network.CIDR do
   end
 
   def from_ip_range(_, acc \\ [])
+  def from_ip_range(s_ip..s_ip//_ = range, _), do: [do_from_ip_range(range)]
   def from_ip_range(s_ip..e_ip//_, acc) when s_ip >= e_ip, do: acc
 
-  def from_ip_range(ip_start..ip_end//_ = range, acc) do
-    max_range_prefix =
-      Range.size(range)
-      |> :math.log2()
-      |> :math.floor()
-      |> round()
-
-    max_range_prefix = 32 - max_range_prefix
-    min_ip_prefix = ip_prefix_length(ip_start)
-    cidr_prefix = max(max_range_prefix, min_ip_prefix)
-    addresses = addresses(cidr_prefix)
-    cidr_ip_end = (ip_start + (addresses - 1)) |> round()
-
-    cidr =
-      %__MODULE__{
-        ip_start: IP.integer_to_tuple(ip_start),
-        ip_end: IP.integer_to_tuple(cidr_ip_end),
-        addresses: addresses,
-        length: cidr_prefix,
-        range: ip_start..cidr_ip_end
-      }
-
+  def from_ip_range(_ip_start..ip_end//_ = range, acc) do
+    cidr = do_from_ip_range(range)
+    cidr_ip_end = IP.tuple_to_integer(cidr.ip_end)
     from_ip_range((cidr_ip_end + 1)..ip_end, [cidr | acc])
   end
 
@@ -184,6 +166,28 @@ defmodule Peridio.RAT.Network.CIDR do
     |> round()
     |> bxor(0xFFFFFFFF)
     |> mask_to_length()
+  end
+
+  defp do_from_ip_range(ip_start.._ip_end//_ = range) do
+    max_range_prefix =
+      Range.size(range)
+      |> :math.log2()
+      |> :math.floor()
+      |> round()
+
+    max_range_prefix = 32 - max_range_prefix
+    min_ip_prefix = ip_prefix_length(ip_start)
+    cidr_prefix = max(max_range_prefix, min_ip_prefix)
+    addresses = addresses(cidr_prefix)
+    cidr_ip_end = (ip_start + (addresses - 1)) |> round()
+
+    %__MODULE__{
+      ip_start: IP.integer_to_tuple(ip_start),
+      ip_end: IP.integer_to_tuple(cidr_ip_end),
+      addresses: addresses,
+      length: cidr_prefix,
+      range: ip_start..cidr_ip_end
+    }
   end
 
   defp addresses(cidr_length) when is_integer(cidr_length), do: 0x100000000 >>> cidr_length
