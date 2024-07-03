@@ -76,7 +76,7 @@ defmodule Peridio.RAT.Network.CIDR do
   end
 
   def from_ip_range(_, acc \\ [])
-  def from_ip_range(s_ip..s_ip//_ = range, _), do: [do_from_ip_range(range)]
+  def from_ip_range(s_ip..e_ip//_ = range, []) when s_ip == e_ip, do: [do_from_ip_range(range)]
   def from_ip_range(s_ip..e_ip//_, acc) when s_ip >= e_ip, do: acc
 
   def from_ip_range(_ip_start..ip_end//_ = range, acc) do

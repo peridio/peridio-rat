@@ -1,4 +1,5 @@
 defmodule Peridio.RAT.Network do
+  alias Peridio.RAT.Tunnel
   alias Peridio.RAT.Network.CIDR
 
   # RFC 1918 - Private Address Space
@@ -46,7 +47,7 @@ defmodule Peridio.RAT.Network do
     case :inet.getifaddrs() do
       {:ok, addrs} ->
         resp =
-          Enum.reduce(addrs, [], fn inets_interface, acc ->
+          Enum.reduce(addrs, tunnel_interface_cidrs(), fn inets_interface, acc ->
             case CIDR.from_inets_interface(inets_interface) do
               {:ok, cidr} -> [cidr | acc]
               _e -> acc
@@ -58,6 +59,16 @@ defmodule Peridio.RAT.Network do
       _error ->
         :error
     end
+  end
+
+  def tunnel_interface_cidrs() do
+    Peridio.RAT.DynamicSupervisor
+    |> DynamicSupervisor.which_children()
+    |> Enum.map(&elem(&1, 1))
+    |> Enum.map(&Tunnel.get_state/1)
+    |> Enum.map(& &1.interface.ip_address.address)
+    |> Enum.map(&CIDR.from_ip_range(&1..&1))
+    |> List.flatten()
   end
 
   def reserved_ports(port_start..port_end//_) do

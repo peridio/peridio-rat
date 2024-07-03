@@ -84,6 +84,10 @@ defmodule Peridio.RAT.Tunnel do
     }
   end
 
+  def get_state(pid) do
+    GenServer.call(pid, :get_state)
+  end
+
   def start_link(%State{} = state) do
     GenServer.start_link(__MODULE__, state, name: generate_via_tuple(state.id, state.interface))
   end
@@ -117,6 +121,10 @@ defmodule Peridio.RAT.Tunnel do
     else
       _ -> {:stop, :normal, state}
     end
+  end
+
+  def handle_call(:get_state, _from, state) do
+    {:reply, state, state}
   end
 
   def handle_info(:ttl_timeout, state) do
