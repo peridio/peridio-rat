@@ -44,4 +44,24 @@ defmodule Peridio.RAT do
         GenServer.cast(pid, {:extend, expires_at})
     end
   end
+
+  def list_tunnels() do
+    Peridio.RAT.DynamicSupervisor
+    |> DynamicSupervisor.which_children()
+    |> Enum.map(&elem(&1, 1))
+    |> Enum.map(&{&1, Tunnel.get_state(&1)})
+    |> Enum.map(fn {pid, %Tunnel.State{id: id, interface: interface}} ->
+      {pid, id, interface}
+    end)
+  end
+
+  def get_tunnel_by_interface_id(interface_id) do
+    case Registry.select(:tunnels, [
+           {{:"$2", :"$1", :"$3"}, [{:==, {:map_get, :id, :"$3"}, interface_id}],
+            [{{:"$1", :"$2", :"$3"}}]}
+         ]) do
+      [] -> nil
+      [tunnel] -> tunnel
+    end
+  end
 end
