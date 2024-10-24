@@ -122,16 +122,20 @@ defmodule Peridio.RAT.Network.CIDR do
     "#{:inet.ntoa(ip_start)}/#{length}"
   end
 
+  @doc """
+  Subtract the right CIDR from the left CIDR
+  """
+
   # l:   [###]
   # r:   [###]
   # ret: []
   def difference(%__MODULE__{range: range}, %__MODULE__{range: range}), do: []
 
   # l:   [####]
-  # r:    [##]
+  # r:   ~[##]~
   # ret: []
   def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: r_start..r_end//_})
-      when l_start < r_start and l_end > r_end do
+      when l_start <= r_start and l_end >= r_end do
     []
   end
 
@@ -147,8 +151,8 @@ defmodule Peridio.RAT.Network.CIDR do
   # r:   [###]
   # ret: [#]
   def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: r_start..r_end//_})
-      when l_end > r_end and l_start >= r_start do
-    [(r_end + 1)..l_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
+      when l_start > r_start and l_end >= r_end do
+    [(r_start + 1)..l_start] |> Enum.map(&from_ip_range/1) |> List.flatten()
   end
 
   # l:    [##]
@@ -157,6 +161,22 @@ defmodule Peridio.RAT.Network.CIDR do
   def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: r_start..r_end//_})
       when l_start > r_start and l_end < r_end do
     [r_start..(l_start - 1), (l_end + 1)..r_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
+  end
+
+  # l:    [###]
+  # r:   [####]
+  # ret: [#]
+  def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: r_start..l_end//_})
+      when l_start > r_start do
+    [r_start..(l_start - 1)] |> Enum.map(&from_ip_range/1) |> List.flatten()
+  end
+
+  # l:   [###]
+  # r:   [####]
+  # ret:    [#]
+  def difference(%__MODULE__{range: l_start..l_end//_}, %__MODULE__{range: l_start..r_end//_})
+      when l_end < r_end do
+    [(l_end + 1)..r_end] |> Enum.map(&from_ip_range/1) |> List.flatten()
   end
 
   def ip_prefix_length(ip_int) do
