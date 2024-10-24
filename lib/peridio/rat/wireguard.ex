@@ -1,5 +1,5 @@
 defmodule Peridio.RAT.WireGuard do
-  @client Application.compile_env(:peridio_rat, :wireguard_client)
+  @client Application.compile_env(:peridio_rat, :wireguard_client, Peridio.RAT.WireGuard.Default)
 
   # Setup and Configuration
   def create_interface(interface_name) do
