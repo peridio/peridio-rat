@@ -45,7 +45,7 @@ defmodule Peridio.RAT do
         {:error, :not_running}
 
       pid ->
-        Tunnel.extend(pid, {:extend, expires_at})
+        Tunnel.extend(pid, expires_at)
     end
   end
 
