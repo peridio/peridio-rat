@@ -25,13 +25,17 @@ defmodule Peridio.RAT do
   end
 
   @spec close_tunnel(any()) :: :ok | {:error, :not_running}
-  def close_tunnel(id) do
+  def close_tunnel(id, reason \\ :normal) do
     case GenServer.whereis(Tunnel.generate_via_tuple(id)) do
       nil ->
         {:error, :not_running}
 
       pid ->
-        GenServer.stop(pid)
+        try do
+          Tunnel.stop(pid, reason)
+        catch
+          :exit, _ -> :ok
+        end
     end
   end
 
@@ -41,7 +45,7 @@ defmodule Peridio.RAT do
         {:error, :not_running}
 
       pid ->
-        GenServer.cast(pid, {:extend, expires_at})
+        Tunnel.extend(pid, {:extend, expires_at})
     end
   end
 
@@ -51,7 +55,7 @@ defmodule Peridio.RAT do
     |> Enum.map(&elem(&1, 1))
     |> Enum.map(&{&1, Tunnel.get_state(&1)})
     |> Enum.map(fn {pid, %Tunnel.State{id: id, interface: interface}} ->
-      {pid, id, interface}
+      {id, pid, interface}
     end)
   end
 

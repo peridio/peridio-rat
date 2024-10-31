@@ -1,4 +1,0 @@
-[Interface]
-Address = <%= interface.ip_address %>
-ListenPort = <%= interface.port %>
-PrivateKey = <%= interface.private_key %>

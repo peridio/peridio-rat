@@ -1,64 +1,62 @@
 defmodule Peridio.RAT.WireGuard.Default do
-  alias Peridio.RAT.WireGuard.{WireGuardBehaviour, Interface, Peer}
+  alias Peridio.RAT.WireGuard.{WireGuardBehaviour, Interface, Peer, QuickConfig}
 
   @behaviour WireGuardBehaviour
 
   # Setup and Configuration
   @impl WireGuardBehaviour
   def create_interface(interface_name) do
-    System.cmd("ip", ["link", "add", "dev", interface_name, "type", "wireguard"])
+    System.cmd("ip", ["link", "add", "dev", interface_name, "type", "wireguard"],
+      stderr_to_stdout: true
+    )
   end
 
   @impl WireGuardBehaviour
   def configure_interface_endpoints(interface_name, our_ip, peer_ip) do
-    System.cmd("ip", ["address", "add", "dev", interface_name, our_ip, "peer", peer_ip])
+    System.cmd("ip", ["address", "add", "dev", interface_name, our_ip, "peer", peer_ip],
+      stderr_to_stdout: true
+    )
   end
 
   @impl WireGuardBehaviour
   def configure_wireguard(%Interface{} = interface, %Peer{} = peer, opts \\ []) do
-    # System.cmd("bash", [
-    #   "-c",
-    #   "wg set #{inspect(args.interface_name)} listen-port #{inspect(args.listen_port)} private-key <(echo #{inspect(args.private_key)}) peer #{inspect(args.peer)} allowed-ips #{inspect(args.allowed_ips)} endpoint #{inspect(args.endpoint_ip)}:#{inspect(args.endpoint_port)} persistent-keepalive #{inspect(args.keep_alive_timeout)}"
-    # ])
-    # This is peer configuration to give to the interface
-    # peer = EEx.eval_file("priv/wg_conf_peer_template.eex", peer: peer)
-    # File.write("priv/#{wg_interface}_peer.conf", peer)
-
     opts = default_wireguard_opts(opts)
-    priv_dir = Application.app_dir(:peridio_rat, "priv")
+    filepath = Path.join(opts[:data_dir], "#{interface.id}.conf")
 
-    # wireguard interface configuration
-    conf_interface =
-      EEx.eval_file("#{priv_dir}/wg_conf_interface_template.eex", interface: interface)
-
-    # wireguard peer configuration
-    conf_peer = EEx.eval_file("#{priv_dir}/wg_conf_peer_template.eex", peer: peer)
-
-    opts[:work_dir]
-    |> Path.join("#{interface.id}.conf")
-    |> File.write(conf_interface <> "\n" <> opts[:hooks] <> "\n" <> conf_peer)
+    extra = opts[:extra] || %{}
+    config = QuickConfig.new(interface, peer, extra)
+    QuickConfig.write(filepath, config)
   end
 
   @impl WireGuardBehaviour
   def bring_up_interface(interface_name, opts \\ []) do
-    # System.cmd("ip", ["link", "set", "up", "dev", interface_name])
     opts = default_wireguard_opts(opts)
-    conf_file = Path.join([opts[:work_dir], "#{interface_name}.conf"])
-    System.cmd("wg-quick", ["up", conf_file])
+    conf_file = Path.join([opts[:data_dir], "#{interface_name}.conf"])
+    System.cmd("wg-quick", ["up", conf_file], stderr_to_stdout: true)
+  end
+
+  require Logger
+  @impl WireGuardBehaviour
+  def teardown_interface(interface_name, opts \\ []) do
+    opts = default_wireguard_opts(opts)
+    conf_file = Path.join([opts[:data_dir], "#{interface_name}.conf"])
+
+    result = System.cmd("wg-quick", ["down", conf_file], stderr_to_stdout: true)
+    Logger.debug("Tearing down interface #{interface_name}")
+    File.rm(conf_file)
+
+    result
   end
 
   @impl WireGuardBehaviour
-  def teardown_interface(interface_name, opts \\ []) do
-    # System.cmd("ip", ["link", "del", "dev", interface_name])
+  def list_interfaces(opts \\ []) do
     opts = default_wireguard_opts(opts)
-    conf_file = Path.join([opts[:work_dir], "#{interface_name}.conf"])
-    result = System.cmd("wg-quick", ["down", conf_file])
 
-    if result == {"", 0} do
-      File.rm(conf_file)
-    end
-
-    result
+    opts[:data_dir]
+    |> Path.join("*.conf")
+    |> Path.wildcard()
+    |> Stream.map(&Path.expand/1)
+    |> Enum.map(&QuickConfig.read!/1)
   end
 
   @impl WireGuardBehaviour
@@ -77,7 +75,9 @@ defmodule Peridio.RAT.WireGuard.Default do
     # This returns the number of packets coming in over the interface. If it's static/unchanging, that _could_ mean it's stale,
     # but it's not definitive proof by itself.
 
-    case System.cmd("cat", ["/sys/class/net/#{interface_name}/statistics/rx_packets"]) do
+    case System.cmd("cat", ["/sys/class/net/#{interface_name}/statistics/rx_packets"],
+           stderr_to_stdout: true
+         ) do
       {packets, 0} ->
         {String.replace(packets, "\n", ""), 0}
 
@@ -91,7 +91,9 @@ defmodule Peridio.RAT.WireGuard.Default do
     # This returns the number of packets going out over the interface. If it's static/unchanging, that _could_ mean it's stale,
     # but it's not definitive proof by itself.
 
-    case System.cmd("cat", ["/sys/class/net/#{interface_name}/statistics/tx_packets"]) do
+    case System.cmd("cat", ["/sys/class/net/#{interface_name}/statistics/tx_packets"],
+           stderr_to_stdout: true
+         ) do
       {packets, 0} ->
         {String.replace(packets, "\n", ""), 0}
 
@@ -105,7 +107,7 @@ defmodule Peridio.RAT.WireGuard.Default do
     # This returns the epoch time of the last key exchange handshake.
     # If this is less than the keep alive timeout, we don't have a live tunnel.
 
-    case System.cmd("wg", ["show", interface_name, "latest-handshakes"]) do
+    case System.cmd("wg", ["show", interface_name, "latest-handshakes"], stderr_to_stdout: true) do
       {"", 0} ->
         {"0", 0}
 
@@ -121,10 +123,10 @@ defmodule Peridio.RAT.WireGuard.Default do
   def default_wireguard_opts(opts) do
     opts
     |> Keyword.put_new(:hooks, "")
-    |> Keyword.put_new(:work_dir, default_work_dir())
+    |> Keyword.put_new(:data_dir, default_data_dir())
   end
 
-  def default_work_dir() do
-    Application.get_env(:peridio_rat, :work_dir, System.tmp_dir!())
+  def default_data_dir() do
+    Application.get_env(:peridio_rat, :data_dir, System.tmp_dir!())
   end
 end

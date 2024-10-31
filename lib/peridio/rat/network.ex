@@ -34,7 +34,7 @@ defmodule Peridio.RAT.Network do
         CIDR.difference(reservation, cidr) |> List.flatten()
       end)
 
-    List.flatten(available ++ available_from_reserved)
+    List.flatten(available ++ available_from_reserved) |> Enum.uniq()
   end
 
   def available_ports(port_range \\ @default_ports) do
@@ -54,7 +54,7 @@ defmodule Peridio.RAT.Network do
             end
           end)
 
-        resp
+        Enum.uniq(resp)
 
       _error ->
         :error

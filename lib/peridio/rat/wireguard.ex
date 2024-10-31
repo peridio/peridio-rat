@@ -22,6 +22,10 @@ defmodule Peridio.RAT.WireGuard do
     @client.teardown_interface(interface_name, opts)
   end
 
+  def list_interfaces(opts \\ []) do
+    @client.list_interfaces(opts)
+  end
+
   def generate_key_pair() do
     @client.generate_key_pair()
   end

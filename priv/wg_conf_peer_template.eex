@@ -1,5 +1,0 @@
-[Peer]
-AllowedIPs = <%= peer.ip_address %>/32
-PublicKey = <%= peer.public_key %>
-<%= if peer.endpoint do %>Endpoint = <%= peer.endpoint %>:<%= peer.port %><% end %>
-<%= if peer.persistent_keepalive do %>PersistentKeepalive = <%= peer.persistent_keepalive %><% end %>
