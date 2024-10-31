@@ -45,6 +45,11 @@ defmodule Peridio.RAT.WireGuard.Mock do
   end
 
   @impl WireGuardBehaviour
+  def list_interfaces(_opts) do
+    []
+  end
+
+  @impl WireGuardBehaviour
   def generate_key_pair() do
     %{
       public_key: "SfHcet4JVMU6QVhs9hVFiAWZOa8YcBpnSdEK1Nyy6nY=",

@@ -1,6 +1,6 @@
 defmodule Peridio.CIDRTest do
   use ExUnit.Case
-  doctest Peridio.RAT
+  doctest Peridio.RAT.Network.CIDR
 
   alias Peridio.RAT.Network.CIDR
 

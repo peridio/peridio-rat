@@ -48,10 +48,9 @@ defmodule Peridio.RAT.WireGuard.Interface do
     }
   end
 
-  def used_interfaces() do
-    with {:ok, interfaces} <- :inet.getifaddrs() do
+  def network_interfaces() do
+    with {:ok, interfaces} <- :inet.getiflist() do
       interfaces
-      |> Enum.map(&elem(&1, 0))
       |> Enum.map(&to_string/1)
       |> Enum.filter(&String.starts_with?(&1, @ifprefix))
     end

@@ -56,19 +56,25 @@ defmodule Peridio.RAT.Tunnel do
   """
   use GenServer
 
-  alias Peridio.RAT.WireGuard
+  require Logger
+
+  alias Peridio.RAT.{WireGuard, Utils}
 
   @status_check_interval 1000 * 60
   # should happen after keepalive_timeout
   @initial_status_check_interval 1000 * 60 * 10
   # handshake times older than this many seconds are to be considered stale
   @connection_timeout 60 * 5
+  @interface_check_timeout 10_000
 
   defmodule State do
     defstruct id: nil,
               interface: nil,
               peer: nil,
               expires_at: nil,
+              exit_reason: :normal,
+              status: :start,
+              interface_timeout_ref: nil,
               opts: []
   end
 
@@ -80,7 +86,7 @@ defmodule Peridio.RAT.Tunnel do
     %{
       id: __MODULE__,
       start: {__MODULE__, :start_link, [args]},
-      restart: :transient
+      restart: :temporary
     }
   end
 
@@ -88,8 +94,16 @@ defmodule Peridio.RAT.Tunnel do
     GenServer.call(pid, :get_state)
   end
 
+  def extend(pid, expires_at) do
+    GenServer.cast(pid, {:extend, expires_at})
+  end
+
   def start_link(%State{} = state) do
     GenServer.start_link(__MODULE__, state, name: generate_via_tuple(state.id, state.interface))
+  end
+
+  def stop(pid, reason \\ :normal) do
+    GenServer.cast(pid, {:stop, reason})
   end
 
   # Server Process Callbacks
@@ -97,8 +111,60 @@ defmodule Peridio.RAT.Tunnel do
     Process.send_after(self(), :check_status, @initial_status_check_interval)
     ttl = DateTime.diff(state.expires_at, DateTime.utc_now(), :millisecond)
     timer_ref = Process.send_after(self(), :ttl_timeout, ttl)
-    opts = Keyword.put(state.opts, :timeout, timer_ref)
-    {:ok, %{state | opts: opts}, {:continue, :further_setup}}
+
+    hooks = state.opts[:hooks] || %{}
+    extra = state.opts[:extra] || %{}
+
+    extra =
+      extra
+      |> Map.merge(%{"Interface" => hooks})
+      |> Utils.deep_merge(%{"Peridio" => %{"TunnelID" => state.id}})
+
+    opts =
+      state.opts
+      |> Keyword.put(:timeout, timer_ref)
+      |> Keyword.put(:extra, extra)
+      |> Keyword.put(:exit_reason, :normal)
+
+    {:ok, %{state | opts: opts}, {:continue, nil}}
+  end
+
+  def handle_continue(nil, state) do
+    interfaces = WireGuard.list_interfaces(state.opts)
+
+    interface_config =
+      Enum.find(interfaces, &String.equivalent?(&1.extra["Peridio"]["TunnelID"], state.id))
+
+    network_interfaces = Peridio.RAT.WireGuard.Interface.network_interfaces()
+
+    cond do
+      is_nil(interface_config) ->
+        Logger.debug("Tunnel #{state.id} configuring interface")
+
+        case WireGuard.configure_wireguard(
+               state.interface,
+               state.peer,
+               state.opts
+             ) do
+          :ok ->
+            Logger.debug("Tunnel #{state.id} bringing up interface #{state.interface.id}")
+            interface_up(state)
+
+          _error ->
+            {:stop, :normal, %{state | exit_reason: "device_error_interface_configure"}}
+        end
+
+      interface_config.interface.id in network_interfaces ->
+        Logger.debug(
+          "Tunnel #{state.id} interface #{interface_config.interface.id} already up, resuming"
+        )
+
+        {:noreply, state}
+
+      true ->
+        Logger.debug("Tunnel #{state.id} config already exists, bringing up interface")
+        interface_up(state)
+    end
   end
 
   def handle_cast({:extend, expires_at}, state) do
@@ -109,18 +175,8 @@ defmodule Peridio.RAT.Tunnel do
     {:noreply, %{state | expires_at: expires_at, opts: opts}}
   end
 
-  def handle_continue(:further_setup, state) do
-    with :ok <-
-           WireGuard.configure_wireguard(
-             state.interface,
-             state.peer,
-             state.opts
-           ),
-         {_, 0} <- WireGuard.bring_up_interface(state.interface.id, state.opts) do
-      {:noreply, state}
-    else
-      _ -> {:stop, :normal, state}
-    end
+  def handle_cast({:stop, reason}, state) do
+    {:stop, :normal, %{state | exit_reason: reason}}
   end
 
   def handle_call(:get_state, _from, state) do
@@ -128,18 +184,37 @@ defmodule Peridio.RAT.Tunnel do
   end
 
   def handle_info(:ttl_timeout, state) do
-    # Just stop the process here and rely on the terminate callback to do the work.
-    {:stop, :normal, state}
+    Logger.info("Tunnel #{state.id} ttl timeout")
+    {:stop, :normal, %{state | exit_reason: :ttl_timeout}}
+  end
+
+  def handle_info(:interface_timeout, state) do
+    Logger.error("Tunnel #{state.id} failed to bring up interface #{state.interface.id}")
+    {:stop, :normal, %{state | exit_reason: :interface_timeout}}
+  end
+
+  def handle_info(:check_interface, %{status: :start} = state) do
+    exists? =
+      WireGuard.Interface.network_interfaces()
+      |> Enum.any?(&String.equivalent?(&1, state.interface.id))
+
+    case exists? do
+      true ->
+        Logger.info("Tunnel #{state.id} interface #{state.interface.id} up")
+        Process.cancel_timer(state.interface_timeout_ref)
+        {:noreply, %{state | interface_timeout_ref: nil, status: :up}}
+
+      false ->
+        Process.send_after(self(), :check_interface, 1000)
+        {:noreply, state}
+    end
   end
 
   def handle_info(:check_status, state) do
-    # assuming we have a WireGuard.stale?(state.wg_interface)
-    # depending on the reply, we can either keep going and check again
-    # or terminate and clean up
     case stale?(state.interface.id) do
       # true -> {:stop, :normal, state}  # FIXME setup a more graceful way to toggle for development
       true ->
-        IO.puts("Stale connection!")
+        Logger.warning("Tunnel #{state.id} reported inactive")
         Process.send_after(self(), :check_status, @status_check_interval)
         {:noreply, state}
 
@@ -151,8 +226,15 @@ defmodule Peridio.RAT.Tunnel do
 
   def terminate(_reason, state) do
     if Map.has_key?(state, :interface) do
-      {_, _} = WireGuard.teardown_interface(state.interface.id)
+      {_, _} = WireGuard.teardown_interface(state.interface.id, state.opts)
     end
+
+    if Keyword.has_key?(state.opts, :on_exit) do
+      on_exit(state.exit_reason, state.opts[:on_exit])
+    end
+
+    Logger.debug("Tunnel #{state.id} terminated reason: #{state.exit_reason}")
+    :ok
   end
 
   defp stale?(interface) do
@@ -174,4 +256,23 @@ defmodule Peridio.RAT.Tunnel do
       _ -> true
     end
   end
+
+  defp interface_up(state) do
+    case WireGuard.bring_up_interface(state.interface.id, state.opts) do
+      {_, 0} ->
+        Process.send_after(self(), :check_interface, 1000)
+
+        interface_timeout_ref =
+          Process.send_after(self(), :interface_timeout, @interface_check_timeout)
+
+        {:noreply, %{state | interface_timeout_ref: interface_timeout_ref}}
+
+      error ->
+        Logger.debug("Tunnel Interface Up Error: #{inspect(error)}")
+        {:stop, :normal, %{state | exit_reason: "device_error_interface_up"}}
+    end
+  end
+
+  defp on_exit(_reason, nil), do: :noop
+  defp on_exit(reason, fun), do: spawn(fn -> fun.(reason) end)
 end

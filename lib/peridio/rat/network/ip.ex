@@ -20,6 +20,14 @@ defmodule Peridio.RAT.Network.IP do
     }
   end
 
+  def new(ipv4_string) when is_binary(ipv4_string) do
+    ipv4_string
+    |> String.split(".")
+    |> Enum.map(&String.to_integer/1)
+    |> List.to_tuple()
+    |> new()
+  end
+
   def tuple_to_integer({a, b, c, d}) do
     <<ipv4_int::unsigned-integer-size(32)>> = <<a, b, c, d>>
     ipv4_int
