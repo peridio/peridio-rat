@@ -58,7 +58,7 @@ defmodule Peridio.RAT.Tunnel do
 
   require Logger
 
-  alias Peridio.RAT.{WireGuard, Utils}
+  alias Peridio.RAT.WireGuard
 
   @status_check_interval 1000 * 60
   # should happen after keepalive_timeout
@@ -112,13 +112,10 @@ defmodule Peridio.RAT.Tunnel do
     ttl = DateTime.diff(state.expires_at, DateTime.utc_now(), :millisecond)
     timer_ref = Process.send_after(self(), :ttl_timeout, ttl)
 
-    hooks = state.opts[:hooks] || %{}
-    extra = state.opts[:extra] || %{}
+    hooks = state.opts[:hooks] || []
+    extra = state.opts[:extra] || []
 
-    extra =
-      extra
-      |> Map.merge(%{"Interface" => hooks})
-      |> Utils.deep_merge(%{"Peridio" => %{"TunnelID" => state.id}})
+    extra = [{"Interface", hooks}, {"Peridio", [{"TunnelID", state.id}]} | extra]
 
     opts =
       state.opts
@@ -133,7 +130,12 @@ defmodule Peridio.RAT.Tunnel do
     interfaces = WireGuard.list_interfaces(state.opts)
 
     interface_config =
-      Enum.find(interfaces, &String.equivalent?(&1.extra["Peridio"]["TunnelID"], state.id))
+      Enum.find(interfaces, fn interface ->
+        [{"TunnelID", tunnel_id}] =
+          WireGuard.QuickConfig.get_in_extra(interface, ["Peridio", "TunnelID"])
+
+        String.equivalent?(tunnel_id, state.id)
+      end)
 
     network_interfaces = Peridio.RAT.WireGuard.Interface.network_interfaces()
 
@@ -259,7 +261,8 @@ defmodule Peridio.RAT.Tunnel do
 
   defp interface_up(state) do
     case WireGuard.bring_up_interface(state.interface.id, state.opts) do
-      {_, 0} ->
+      {result, 0} ->
+        Logger.debug("Tunnel Interface Up Output: #{inspect(result)}")
         Process.send_after(self(), :check_interface, 1000)
 
         interface_timeout_ref =
@@ -268,7 +271,7 @@ defmodule Peridio.RAT.Tunnel do
         {:noreply, %{state | interface_timeout_ref: interface_timeout_ref}}
 
       error ->
-        Logger.debug("Tunnel Interface Up Error: #{inspect(error)}")
+        Logger.error("Tunnel Interface Up Error: #{inspect(error)}")
         {:stop, :normal, %{state | exit_reason: "device_error_interface_up"}}
     end
   end
