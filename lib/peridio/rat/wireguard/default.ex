@@ -58,6 +58,7 @@ defmodule Peridio.RAT.WireGuard.Default do
     |> Stream.map(&Path.expand/1)
     |> Enum.map(&QuickConfig.read/1)
     |> Enum.filter(&match?({:ok, _}, &1))
+    |> Enum.map(&elem(&1, 1))
   end
 
   @impl WireGuardBehaviour

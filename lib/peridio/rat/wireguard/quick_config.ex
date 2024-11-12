@@ -1,6 +1,7 @@
 defmodule Peridio.RAT.WireGuard.QuickConfig do
   alias Peridio.RAT.WireGuard.{Interface, Peer}
   alias Peridio.RAT.Network.IP
+  alias Peridio.RAT.Utils
 
   require Logger
 
@@ -37,7 +38,7 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
 
   def write(filepath, %__MODULE__{} = config) do
     content = encode(config)
-    File.write(filepath, content)
+    Utils.write_file_sync(filepath, content)
   end
 
   def read(filepath) do
