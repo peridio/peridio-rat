@@ -25,6 +25,18 @@ defmodule Peridio.UtilsTest do
   # A = C
   """
 
+  @config_partial """
+  [Interface]
+  Address = 10.0.0.1
+  # ID = peridio-56X4U4Q
+
+  [Peer]
+  AllowedIPs = 10.0.0.3/32
+  PublicKey = h2W8fjxUwZH+G8/Qp/H7kzn4SQz/EJIhOVFMh6mmtX4=
+  Endpoint = 10.0.0.2:8081
+  PersistentKeepalive = 25
+  """
+
   describe "conf" do
     test "parse" do
       parsed_config = QuickConfig.conf_parse(@config)
@@ -98,7 +110,7 @@ defmodule Peridio.UtilsTest do
 
       config = QuickConfig.new(interface, peer, extra)
       encoded_config = QuickConfig.encode(config)
-      decoded_conf = QuickConfig.decode_conf(encoded_config)
+      {:ok, decoded_conf} = QuickConfig.decode_conf(encoded_config)
       assert config.interface == decoded_conf.interface
       assert config.peer == decoded_conf.peer
     end
@@ -118,6 +130,20 @@ defmodule Peridio.UtilsTest do
       assert_raise RuntimeError, fn ->
         QuickConfig.new(%Interface{}, %Peer{}, [{"Interface", ["foo"]}]) |> QuickConfig.encode()
       end
+    end
+
+    test "empty conf" do
+      assert {:error, :nil_config} = QuickConfig.decode_conf(nil)
+    end
+
+    test "corrupt conf" do
+      assert {:error, :interface_section_missing} = QuickConfig.decode_conf("foo")
+      assert {:error, :interface_section_missing} = QuickConfig.decode_conf("[Peer]")
+      assert {:error, {:missing_required_keys, _}} = QuickConfig.decode_conf("[Interface]")
+    end
+
+    test "partial conf" do
+      assert {:error, {:missing_required_keys, _}} = QuickConfig.decode_conf(@config_partial)
     end
   end
 end

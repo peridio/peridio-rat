@@ -41,15 +41,163 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
   end
 
   def read(filepath) do
-    case File.read(filepath) do
-      {:ok, conf} -> {:ok, decode_conf(conf)}
-      error -> error
+    with {:ok, content} <- File.read(filepath),
+         {:ok, _} <- validate_content(content),
+         {:ok, decoded} <- decode_conf(content) do
+      {:ok, decoded}
+    else
+      {:error, :enoent} ->
+        {:error, :file_not_found}
+
+      {:error, :empty_file} ->
+        {:error, :empty_file}
+
+      {:error, :invalid_content} ->
+        {:error, :invalid_config}
+
+      {:error, reason} when is_atom(reason) ->
+        {:error, reason}
+
+      error ->
+        Logger.error("Unexpected error reading WireGuard config: #{inspect(error)}")
+        {:error, :invalid_config}
     end
   end
 
   def read!(filepath) do
-    {:ok, quick_config} = read(filepath)
-    quick_config
+    case read(filepath) do
+      {:ok, config} -> config
+      {:error, reason} -> raise "Failed to read WireGuard config: #{reason}"
+    end
+  end
+
+  defp validate_content(""), do: {:error, :empty_file}
+  defp validate_content(nil), do: {:error, :empty_file}
+  defp validate_content(content) when is_binary(content), do: {:ok, content}
+  defp validate_content(_), do: {:error, :invalid_content}
+
+  def decode_conf(nil), do: {:error, :nil_config}
+
+  def decode_conf(conf) do
+    try do
+      conf_list = conf_parse(conf)
+
+      with {:ok, interface} <-
+             safe_get_section_and_decode(conf_list, "Interface", &safe_decode_interface/1),
+           {:ok, peer} <- safe_get_section_and_decode(conf_list, "Peer", &safe_decode_peer/1) do
+        extra = decode_extra(conf_list)
+        {:ok, %__MODULE__{interface: interface, peer: peer, extra: extra}}
+      else
+        {:error, reason} -> {:error, reason}
+      end
+    rescue
+      e ->
+        Logger.error("Error decoding config: #{inspect(e)}")
+        {:error, :decode_error}
+    end
+  end
+
+  defp safe_get_section_and_decode(conf_list, section, decoder) do
+    case Enum.find(conf_list, fn {name, _} -> name == section end) do
+      {^section, values} when is_list(values) ->
+        decoder.(values)
+
+      nil ->
+        {:error, :"#{String.downcase(section)}_section_missing"}
+
+      _ ->
+        {:error, :"invalid_#{String.downcase(section)}_section"}
+    end
+  end
+
+  def safe_decode_interface(interface_kvs) do
+    required_keys = ["Address", "ListenPort", "PrivateKey", "ID", "PublicKey"]
+
+    with {:ok, values} <- validate_required_keys(interface_kvs, required_keys),
+         {:ok, port} <- safe_to_integer(values["ListenPort"]) do
+      try do
+        interface = %Interface{
+          ip_address: IP.new(values["Address"]),
+          port: port,
+          private_key: values["PrivateKey"],
+          id: values["ID"],
+          public_key: values["PublicKey"]
+        }
+
+        {:ok, interface}
+      rescue
+        _ -> {:error, :invalid_interface_values}
+      end
+    end
+  end
+
+  def safe_decode_peer(peer_kvs) do
+    required_keys = ["AllowedIPs", "Endpoint", "PublicKey", "PersistentKeepalive"]
+
+    with {:ok, values} <- validate_required_keys(peer_kvs, required_keys),
+         {:ok, endpoint, port} <- parse_endpoint(values["Endpoint"]),
+         {:ok, keepalive} <- safe_to_integer(values["PersistentKeepalive"]),
+         {:ok, ip} <- parse_allowed_ips(values["AllowedIPs"]) do
+      try do
+        peer = %Peer{
+          ip_address: ip,
+          endpoint: endpoint,
+          port: port,
+          public_key: values["PublicKey"],
+          persistent_keepalive: keepalive
+        }
+
+        {:ok, peer}
+      rescue
+        _ -> {:error, :invalid_peer_values}
+      end
+    end
+  end
+
+  defp validate_required_keys(kvs, required_keys) do
+    values = Enum.into(kvs, %{})
+    missing_keys = Enum.filter(required_keys, &(not Map.has_key?(values, &1)))
+
+    case missing_keys do
+      [] -> {:ok, values}
+      missing -> {:error, {:missing_required_keys, missing}}
+    end
+  end
+
+  defp safe_to_integer(nil), do: {:error, :value_missing}
+
+  defp safe_to_integer(str) when is_binary(str) do
+    try do
+      {:ok, String.to_integer(str)}
+    rescue
+      _ -> {:error, :invalid_integer}
+    end
+  end
+
+  defp safe_to_integer(_), do: {:error, :invalid_integer}
+
+  defp parse_endpoint(nil), do: {:error, :endpoint_missing}
+
+  defp parse_endpoint(endpoint) do
+    case String.split(endpoint, ":") do
+      [host, port_str] ->
+        case safe_to_integer(port_str) do
+          {:ok, port} -> {:ok, host, port}
+          {:error, reason} -> {:error, {:invalid_port, reason}}
+        end
+
+      _ ->
+        {:error, :invalid_endpoint_format}
+    end
+  end
+
+  defp parse_allowed_ips(nil), do: {:error, :allowed_ips_missing}
+
+  defp parse_allowed_ips(ips) do
+    case String.split(ips, "/") do
+      [ip | _] -> {:ok, ip}
+      _ -> {:error, :invalid_allowed_ips_format}
+    end
   end
 
   def get_in_extra(%__MODULE__{extra: extra}, [section | rest]) do
@@ -133,14 +281,6 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
     |> conf_to_string()
   end
 
-  def decode_conf(conf) do
-    conf_list = conf_parse(conf)
-    interface = get_section_and_decode(conf_list, "Interface", &decode_interface/1)
-    peer = get_section_and_decode(conf_list, "Peer", &decode_peer/1)
-    extra = decode_extra(conf_list)
-    %__MODULE__{interface: interface, peer: peer, extra: extra}
-  end
-
   def decode_interface(interface_kvs) do
     values = Enum.into(interface_kvs, %{})
 
@@ -209,13 +349,6 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
         _ -> []
       end
     end)
-  end
-
-  defp get_section_and_decode(conf_list, section, decoder) do
-    conf_list
-    |> Enum.find(fn {name, _} -> name == section end)
-    |> elem(1)
-    |> decoder.()
   end
 
   defp merge_extra(base, extra) do
