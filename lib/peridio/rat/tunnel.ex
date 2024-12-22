@@ -152,7 +152,8 @@ defmodule Peridio.RAT.Tunnel do
             Logger.debug("Tunnel #{state.id} bringing up interface #{state.interface.id}")
             interface_up(state)
 
-          _error ->
+          error ->
+            Logger.error("Tunnel #{state.id} error configuring interface #{inspect(error)}")
             {:stop, :normal, %{state | exit_reason: "device_error_interface_configure"}}
         end
 
