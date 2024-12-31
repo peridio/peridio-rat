@@ -65,7 +65,8 @@ defmodule Peridio.RAT.Network do
     Peridio.RAT.DynamicSupervisor
     |> DynamicSupervisor.which_children()
     |> Enum.map(&elem(&1, 1))
-    |> Enum.map(&Tunnel.get_state/1)
+    |> Enum.map(&Tunnel.try_get_state/1)
+    |> Enum.reject(&is_nil/1)
     |> Enum.map(& &1.interface.ip_address.address)
     |> Enum.map(&CIDR.from_ip_range(&1..&1))
     |> List.flatten()
