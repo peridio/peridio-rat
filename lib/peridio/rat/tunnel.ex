@@ -90,8 +90,13 @@ defmodule Peridio.RAT.Tunnel do
     }
   end
 
-  def get_state(pid) do
-    GenServer.call(pid, :get_state)
+  def try_get_state(pid) do
+    try do
+      GenServer.call(pid, :get_state)
+    catch
+      :exit, _ ->
+        nil
+    end
   end
 
   def extend(pid, expires_at) do

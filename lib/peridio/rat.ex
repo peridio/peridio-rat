@@ -53,7 +53,8 @@ defmodule Peridio.RAT do
     Peridio.RAT.DynamicSupervisor
     |> DynamicSupervisor.which_children()
     |> Enum.map(&elem(&1, 1))
-    |> Enum.map(&{&1, Tunnel.get_state(&1)})
+    |> Enum.map(&{&1, Tunnel.try_get_state(&1)})
+    |> Enum.reject(&is_nil/1)
     |> Enum.map(fn {pid, %Tunnel.State{id: id, interface: interface}} ->
       {id, pid, interface}
     end)
