@@ -82,7 +82,7 @@ defmodule Peridio.RAT.Network.CIDR do
   def from_ip_range(_ip_start..ip_end//_ = range, acc) do
     cidr = do_from_ip_range(range)
     cidr_ip_end = IP.tuple_to_integer(cidr.ip_end)
-    from_ip_range((cidr_ip_end + 1)..ip_end, [cidr | acc])
+    from_ip_range(Range.new(cidr_ip_end + 1, ip_end, 1), [cidr | acc])
   end
 
   def find_start_address({_, _, _, _} = addr, {_, _, _, _} = mask) do
