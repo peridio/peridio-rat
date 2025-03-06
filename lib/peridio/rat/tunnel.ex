@@ -246,22 +246,25 @@ defmodule Peridio.RAT.Tunnel do
   end
 
   defp stale?(interface) do
-    {rx, _} = WireGuard.rx_packet_stats(interface)
-    {tx, _} = WireGuard.tx_packet_stats(interface)
-    {time, _} = WireGuard.wg_latest_handshakes(interface)
-    rx = String.to_integer(rx)
-    tx = String.to_integer(tx)
-    time = String.to_integer(time)
-    current_time = :os.system_time(:seconds)
+    with {rx, 0} <- WireGuard.rx_packet_stats(interface),
+         {tx, 0} <- WireGuard.tx_packet_stats(interface),
+         {time, 0} <- WireGuard.wg_latest_handshakes(interface) do
+        rx = String.to_integer(rx)
+        tx = String.to_integer(tx)
+        time = String.to_integer(time)
+        current_time = :os.system_time(:seconds)
 
-    case {rx, tx, time} do
-      # Still setting up
-      {0, 0, 0} -> false
-      # Sending, but not receiving, so first check should fail
-      {0, _tx, 0} -> true
-      # Started handshakes, but they went cold
-      {_, _, time} when current_time <= time + @connection_timeout -> false
-      _ -> true
+      case {rx, tx, time} do
+        # Still setting up
+        {0, 0, 0} -> false
+        # Sending, but not receiving, so first check should fail
+        {0, _tx, 0} -> true
+        # Started handshakes, but they went cold
+        {_, _, time} when current_time <= time + @connection_timeout -> false
+        _ -> true
+      end
+    else
+      _e -> true
     end
   end
 
