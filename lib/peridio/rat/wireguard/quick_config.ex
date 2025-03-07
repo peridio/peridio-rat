@@ -255,7 +255,7 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
   end
 
   def encode(%Interface{} = interface) do
-    conf = [
+    [
       {"Address", to_string(interface.ip_address)},
       {"ListenPort", to_string(interface.port)},
       {"PrivateKey", interface.private_key},
