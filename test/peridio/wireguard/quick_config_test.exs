@@ -25,6 +25,24 @@ defmodule Peridio.UtilsTest do
   # A = C
   """
 
+  @config_server """
+  [Interface]
+  Address = 10.0.0.1
+  ListenPort = 8080
+  PrivateKey = 2PSyTqm+3rXzUK+T8jBhgZp9UHjFkgVZv4bXncWMyXY=
+  # ID = peridio-56X4U4Q
+  # PublicKey = Pu7ymHtDqF4X9VNjVj9mYFBh/z7LGxY6VQJAGiSEgTM=
+
+  [Peer]
+  AllowedIPs = 10.0.0.3/32
+  PublicKey = h2W8fjxUwZH+G8/Qp/H7kzn4SQz/EJIhOVFMh6mmtX4=
+
+  # [Peridio]
+  # TunnelID = prn:1:be4d30b4-de6b-47cd-85ea-a75e23fd63ef:tunnel:b3f1f699-3bc8-4c77-bda2-b974595d5e3f
+  # A = B
+  # A = C
+  """
+
   @config_partial """
   [Interface]
   Address = 10.0.0.1
@@ -75,6 +93,21 @@ defmodule Peridio.UtilsTest do
       assert {"A", "C"} = Enum.find(a_values, &(elem(&1, 1) == "C"))
     end
 
+    test "parse server" do
+      parsed_config = QuickConfig.conf_parse(@config_server)
+      {"Peer", peer_section} = Enum.find(parsed_config, &(elem(&1, 0) == "Peer"))
+
+      assert {"AllowedIPs", "10.0.0.3/32"} =
+               Enum.find(peer_section, &(elem(&1, 0) == "AllowedIPs"))
+
+      assert {"PublicKey", "h2W8fjxUwZH+G8/Qp/H7kzn4SQz/EJIhOVFMh6mmtX4="} =
+               Enum.find(peer_section, &(elem(&1, 0) == "PublicKey"))
+
+      assert nil == Enum.find(peer_section, &(elem(&1, 0) == "Endpoint"))
+
+      assert nil == Enum.find(peer_section, &(elem(&1, 0) == "PersistentKeepalive"))
+    end
+
     test "read/write" do
       interface =
         %Interface{
@@ -92,6 +125,43 @@ defmodule Peridio.UtilsTest do
           port: 8081,
           public_key: "h2W8fjxUwZH+G8/Qp/H7kzn4SQz/EJIhOVFMh6mmtX4=",
           persistent_keepalive: 25
+        }
+
+      extra = [
+        {"Peridio",
+         [
+           {"TunnelID",
+            "prn:1:be4d30b4-de6b-47cd-85ea-a75e23fd63ef:tunnel:b3f1f699-3bc8-4c77-bda2-b974595d5e3f"}
+         ]},
+        {"Interface",
+         [
+           {"PreUp", "foo"},
+           {"PreUp", "bar"}
+         ]},
+        {"Peridio", [{"Other", "Value"}]}
+      ]
+
+      config = QuickConfig.new(interface, peer, extra)
+      encoded_config = QuickConfig.encode(config)
+      {:ok, decoded_conf} = QuickConfig.decode_conf(encoded_config)
+      assert config.interface == decoded_conf.interface
+      assert config.peer == decoded_conf.peer
+    end
+
+    test "server" do
+      interface =
+        %Interface{
+          id: "peridio-56X4U4Q",
+          ip_address: IP.new("10.0.0.1"),
+          port: 8080,
+          public_key: "Pu7ymHtDqF4X9VNjVj9mYFBh/z7LGxY6VQJAGiSEgTM=",
+          private_key: "2PSyTqm+3rXzUK+T8jBhgZp9UHjFkgVZv4bXncWMyXY="
+        }
+
+      peer =
+        %Peer{
+          ip_address: "10.0.0.3",
+          public_key: "h2W8fjxUwZH+G8/Qp/H7kzn4SQz/EJIhOVFMh6mmtX4="
         }
 
       extra = [

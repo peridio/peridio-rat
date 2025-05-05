@@ -249,10 +249,10 @@ defmodule Peridio.RAT.Tunnel do
     with {rx, 0} <- WireGuard.rx_packet_stats(interface),
          {tx, 0} <- WireGuard.tx_packet_stats(interface),
          {time, 0} <- WireGuard.wg_latest_handshakes(interface) do
-        rx = String.to_integer(rx)
-        tx = String.to_integer(tx)
-        time = String.to_integer(time)
-        current_time = :os.system_time(:seconds)
+      rx = String.to_integer(rx)
+      tx = String.to_integer(tx)
+      time = String.to_integer(time)
+      current_time = :os.system_time(:seconds)
 
       case {rx, tx, time} do
         # Still setting up
