@@ -38,8 +38,10 @@ defmodule Peridio.RAT.WireGuard.Interface do
 
   @ifprefix "peridio-"
 
+  def generate_interface_id(), do: @ifprefix <> Utils.generate_random_string(4)
+
   def new(%{private_key: private_key, public_key: public_key} = opts) do
-    id = @ifprefix <> Utils.generate_random_string(4)
+    id = generate_interface_id()
     port_range = Network.available_ports()
     port = port_range |> Enum.random() |> Enum.random()
 

@@ -1,7 +1,7 @@
 defmodule Peridio.RAT.WireGuard.QuickConfig do
-  alias Peridio.RAT.WireGuard.{Interface, Peer}
   alias Peridio.RAT.Network.IP
   alias Peridio.RAT.Utils
+  alias Peridio.RAT.WireGuard.{Interface, Peer}
 
   require Logger
 
@@ -133,11 +133,12 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
   end
 
   def safe_decode_peer(peer_kvs) do
-    required_keys = ["AllowedIPs", "Endpoint", "PublicKey", "PersistentKeepalive"]
+    required_keys = ["AllowedIPs", "PublicKey"]
 
     with {:ok, values} <- validate_required_keys(peer_kvs, required_keys),
+         maybe_keepalive <- Map.fetch(values, "PersistentKeepalive"),
+         {:ok, keepalive} <- safe_decode_keepalive(maybe_keepalive),
          {:ok, endpoint, port} <- parse_endpoint(values["Endpoint"]),
-         {:ok, keepalive} <- safe_to_integer(values["PersistentKeepalive"]),
          {:ok, ip} <- parse_allowed_ips(values["AllowedIPs"]) do
       try do
         peer = %Peer{
@@ -154,6 +155,9 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
       end
     end
   end
+
+  defp safe_decode_keepalive(:error), do: {:ok, nil}
+  defp safe_decode_keepalive({:ok, keepalive}), do: safe_to_integer(keepalive)
 
   defp validate_required_keys(kvs, required_keys) do
     values = Enum.into(kvs, %{})
@@ -177,7 +181,7 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
 
   defp safe_to_integer(_), do: {:error, :invalid_integer}
 
-  defp parse_endpoint(nil), do: {:error, :endpoint_missing}
+  defp parse_endpoint(nil), do: {:ok, nil, nil}
 
   defp parse_endpoint(endpoint) do
     case String.split(endpoint, ":") do
@@ -255,23 +259,36 @@ defmodule Peridio.RAT.WireGuard.QuickConfig do
   end
 
   def encode(%Interface{} = interface) do
-    [
+    data = [
       {"Address", to_string(interface.ip_address)},
       {"ListenPort", to_string(interface.port)},
       {"PrivateKey", interface.private_key},
       {"ID", interface.id},
-      {"PublicKey", interface.public_key},
-      {"Table", to_string(interface.table)}
+      {"PublicKey", interface.public_key}
     ]
+
+    case interface.table do
+      nil -> data
+      table -> [{"Table", to_string(table)} | data]
+    end
   end
 
   def encode(%Peer{} = peer) do
-    [
+    data = [
       {"AllowedIPs", "#{peer.ip_address}/32"},
-      {"PublicKey", peer.public_key},
-      {"Endpoint", "#{peer.endpoint}:#{peer.port}"},
-      {"PersistentKeepalive", to_string(peer.persistent_keepalive)}
+      {"PublicKey", peer.public_key}
     ]
+
+    data =
+      case peer.endpoint do
+        nil -> data
+        endpoint -> [{"Endpoint", "#{endpoint}:#{peer.port}"} | data]
+      end
+
+    case peer.persistent_keepalive do
+      nil -> data
+      keepalive -> [{"PersistentKeepalive", to_string(keepalive)} | data]
+    end
   end
 
   def encode(%__MODULE__{} = config) do
